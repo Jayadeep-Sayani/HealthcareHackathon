@@ -14,6 +14,8 @@ services:
       - EMAIL_PORT=${EMAIL_PORT}
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_PASS=${EMAIL_PASS}
+      - BOOKING_NOTIFY_EMAIL=${BOOKING_NOTIFY_EMAIL:-}
+      - BOOKING_PUBLIC_BASE_URL=${BOOKING_PUBLIC_BASE_URL:-http://localhost:5173}
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:

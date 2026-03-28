@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -57,6 +57,7 @@ class Referral(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     accepted_by_doctor_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("doctors.id"), nullable=True)
+    booking_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     patient: Mapped["Patient"] = relationship(back_populates="referrals")
     referring_doctor: Mapped["Doctor"] = relationship(
@@ -68,6 +69,25 @@ class Referral(Base):
         foreign_keys=[accepted_by_doctor_id],
     )
     care_thread_entries: Mapped[list["CareThreadEntry"]] = relationship(back_populates="referral")
+    appointment_slot: Mapped["AppointmentSlot | None"] = relationship(
+        back_populates="referral",
+        uselist=False,
+    )
+
+
+class AppointmentSlot(Base):
+    __tablename__ = "appointment_slots"
+    __table_args__ = (
+        UniqueConstraint("doctor_id", "starts_at", name="uq_appointment_slot_doctor_starts"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    doctor_id: Mapped[int] = mapped_column(Integer, ForeignKey("doctors.id"), nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    referral_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("referrals.id"), nullable=True, unique=True)
+
+    doctor: Mapped["Doctor"] = relationship()
+    referral: Mapped["Referral | None"] = relationship(back_populates="appointment_slot")
 
 
 class CareThreadEntry(Base):

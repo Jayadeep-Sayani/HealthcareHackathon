@@ -1,3 +1,5 @@
+import os
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -96,6 +98,7 @@ def accept_referral(referral_id: int, body: ReferralAccept, db: Session = Depend
     referral.status = "accepted"
     referral.accepted_at = now
     referral.accepted_by_doctor_id = body.doctor_id
+    referral.booking_token = str(uuid.uuid4())
 
     entry = CareThreadEntry(
         patient_id=referral.patient_id,
@@ -115,12 +118,16 @@ def accept_referral(referral_id: int, body: ReferralAccept, db: Session = Depend
     # Trigger email notification (non-blocking)
     try:
         from email_service import send_referral_accepted_email
-        if patient:
+
+        if patient and referral.booking_token:
+            base = (os.getenv("BOOKING_PUBLIC_BASE_URL") or "http://localhost:5173").rstrip("/")
+            booking_url = f"{base}/book/{referral.id}?token={referral.booking_token}"
             send_referral_accepted_email(
                 patient_email=patient.email,
                 patient_name=patient.name,
                 specialist_name=accepting_doctor.name,
                 specialty=accepting_doctor.specialty or "Specialist",
+                booking_url=booking_url,
             )
     except Exception as e:
         print(f"Email send failed (non-critical): {e}")

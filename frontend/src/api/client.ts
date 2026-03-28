@@ -1,12 +1,24 @@
 import type {
   AuthState,
+  BookingClaimResult,
+  BookingPage,
   CareThreadEntry,
   Patient,
   Referral,
   TranscriptResponse,
 } from "../types";
 
-const BASE = "/api";
+const BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "/api";
+
+function formatErrorDetail(body: unknown): string {
+  if (!body || typeof body !== "object") return "Request failed";
+  const detail = (body as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail[0] && typeof detail[0] === "object" && "msg" in detail[0]) {
+    return String((detail[0] as { msg: string }).msg);
+  }
+  return "Request failed";
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -14,8 +26,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || res.statusText);
+    const err = await res.json().catch(() => null);
+    throw new Error(formatErrorDetail(err) || res.statusText);
   }
   return res.json() as Promise<T>;
 }
@@ -85,5 +97,23 @@ export function finalizeNote(data: {
   return request<{ formal_note: string }>("/ai/finalize", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export function getBookingPage(
+  referralId: number,
+  token: string
+): Promise<BookingPage> {
+  const q = `?token=${encodeURIComponent(token)}`;
+  return request<BookingPage>(`/public/booking/${referralId}${q}`);
+}
+
+export function claimBookingSlot(
+  referralId: number,
+  body: { token: string; slot_id: number }
+): Promise<BookingClaimResult> {
+  return request<BookingClaimResult>(`/public/booking/${referralId}/claim`, {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }

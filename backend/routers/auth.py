@@ -15,7 +15,10 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         select(Doctor).where(Doctor.name == body.username)
     ).first()
     if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")
+        raise HTTPException(
+            status_code=401,
+            detail="Doctor not found. Seed the database from backend/: python seed.py",
+        )
     return LoginResponse(
         doctor_id=doctor.id,
         name=doctor.name,

@@ -28,8 +28,11 @@ source .venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
+# Load demo doctors/patients (required for login)
+python seed.py
+
 # Start dev server (auto-reloads on save)
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 
 Runs at: http://localhost:8000
@@ -66,5 +69,5 @@ npm run build
 ## Notes
 
 - The Vite dev server proxies `/api/*` to `localhost:8000` — no CORS issues during development.
-- The SQLite database file (`app.db`) is created  automatically in `backend/` on first run.
-- To reset the database, delete `backend/app.db` and restart the backend.
+- The SQLite database file is created under `backend/data/` (see `DATABASE_URL` in `.env`) on first run.
+- To reset the database, delete that file and restart the backend.

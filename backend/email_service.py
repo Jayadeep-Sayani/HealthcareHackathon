@@ -1,9 +1,13 @@
 """Email notification service for MedRelay."""
 
+import logging
 import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import parseaddr
+
+logger = logging.getLogger(__name__)
 
 
 def send_referral_accepted_email(
@@ -11,19 +15,45 @@ def send_referral_accepted_email(
     patient_name: str,
     specialist_name: str,
     specialty: str,
+    booking_url: str,
 ) -> bool:
-    """Send email notification to patient when their referral is accepted."""
+    """Send booking email when a referral is accepted.
+
+    If BOOKING_NOTIFY_EMAIL is set, the message is delivered there (demo / testing).
+    Otherwise it goes to the patient's email on file.
+    """
     host = os.getenv("EMAIL_HOST", "")
     port = int(os.getenv("EMAIL_PORT", "587"))
     user = os.getenv("EMAIL_USER", "")
     password = os.getenv("EMAIL_PASS", "")
 
     if not all([host, user, password]):
-        print("Email not configured — skipping notification")
+        logger.warning("Email not configured (set EMAIL_HOST, EMAIL_USER, EMAIL_PASS) — skipping notification")
         return False
 
+    # SMTP login user is often "resend"; From must be a real address Resend accepts (see EMAIL_FROM).
+    from_header = (os.getenv("EMAIL_FROM") or "MedRelay <onboarding@resend.dev>").strip()
+    _, envelope_from = parseaddr(from_header)
+    if not envelope_from or "@" not in envelope_from:
+        logger.error(
+            "EMAIL_FROM must be a valid address (e.g. MedRelay <onboarding@resend.dev>); got %r",
+            from_header,
+        )
+        return False
+
+    notify_override = os.getenv("BOOKING_NOTIFY_EMAIL", "").strip()
+    recipient = notify_override or patient_email
+    demo_banner = ""
+    if notify_override:
+        demo_banner = f"""
+            <p style="padding: 12px 16px; background: #fffbeb; border-radius: 8px; border-left: 4px solid #f59e0b; font-size: 14px;">
+                <strong>Demo delivery</strong> — this booking notice is sent to your inbox instead of the patient.
+                In production it would go to <strong>{patient_email}</strong>.
+            </p>
+        """
+
     specialty_display = specialty.replace("_", " ").title()
-    booking_link = f"https://medrelay.ca/book/{specialist_name.lower().replace(' ', '-').replace('.', '')}"
+    booking_link = booking_url
 
     subject = "MedRelay: Book Your Appointment"
     html_body = f"""
@@ -33,6 +63,7 @@ def send_referral_accepted_email(
             <h1 style="color: white; margin: 0; font-size: 24px;">MedRelay</h1>
         </div>
         <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+            {demo_banner}
             <p>Dear {patient_name},</p>
             <p>Your referral has been accepted by <strong>{specialist_name}</strong> ({specialty_display}).</p>
 
@@ -63,17 +94,22 @@ def send_referral_accepted_email(
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = f"MedRelay <{user}>"
-    msg["To"] = patient_email
+    msg["From"] = from_header
+    msg["To"] = recipient
     msg.attach(MIMEText(html_body, "html"))
 
     try:
         with smtplib.SMTP(host, port) as server:
             server.starttls()
             server.login(user, password)
-            server.sendmail(user, patient_email, msg.as_string())
-        print(f"Booking email sent to {patient_email}")
+            server.sendmail(envelope_from, [recipient], msg.as_string())
+        logger.info(
+            "Booking email accepted by SMTP for %s (from=%s)%s",
+            recipient,
+            envelope_from,
+            f"; demo override (patient was {patient_email})" if notify_override else "",
+        )
         return True
     except Exception as e:
-        print(f"Failed to send email: {e}")
+        logger.exception("SMTP failed sending booking email to %s: %s", recipient, e)
         return False

@@ -111,3 +111,30 @@ class DoctorOut(BaseModel):
     specialty: str | None
 
     model_config = {"from_attributes": True}
+
+
+# --- Public patient booking (token in email link) ---
+
+class BookingSlotOut(BaseModel):
+    id: int
+    starts_at: datetime
+    booked: bool
+
+
+class BookingPageResponse(BaseModel):
+    patient_name: str
+    specialist_name: str
+    specialty: str | None
+    booked_slot: BookingSlotOut | None
+    slots: list[BookingSlotOut]
+
+
+class BookingClaimRequest(BaseModel):
+    token: str
+    slot_id: int
+
+
+class BookingClaimResponse(BaseModel):
+    starts_at: datetime
+    specialist_name: str
+    message: str

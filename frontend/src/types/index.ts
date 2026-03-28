@@ -61,3 +61,23 @@ export interface Appointment {
   type: string;
   duration: string;
 }
+
+export interface BookingSlot {
+  id: number;
+  starts_at: string;
+  booked: boolean;
+}
+
+export interface BookingPage {
+  patient_name: string;
+  specialist_name: string;
+  specialty: string | null;
+  booked_slot: BookingSlot | null;
+  slots: BookingSlot[];
+}
+
+export interface BookingClaimResult {
+  starts_at: string;
+  specialist_name: string;
+  message: string;
+}

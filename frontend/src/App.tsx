@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import DoctorSession from "./pages/DoctorSession";
 import SpecialistFeed from "./pages/SpecialistFeed";
 import PatientThread from "./pages/PatientThread";
+import BookAppointment from "./pages/BookAppointment";
 
 function getAuth(): AuthState | null {
   const raw = localStorage.getItem("medrelay_auth");
@@ -81,6 +82,7 @@ export default function App() {
             )
           }
         />
+        <Route path="/book/:referralId" element={<BookAppointment />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
